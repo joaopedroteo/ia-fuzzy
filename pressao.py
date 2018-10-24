@@ -2,28 +2,24 @@ import numpy as np
 import skfuzzy as fuzz
 import matplotlib.pyplot as plt
 
-# Generate universe variables
-#   * distanciaity and velocidadeice on subjective ranges [0, 10]
-#   * pressao has a range of [0, 25] in units of percentage points
-x_distancia = np.arange(0, 101, 1)
-# x_distancia = x_distancia[::-1]
-# print(x_distancia)
-x_velocidade = np.arange(0, 101, 1)
-x_pressao  = np.arange(0, 101, 1)
+
+x_distancia = np.arange(0, 101, 1)      # distancia vai de 0 a 100 variando em 1
+x_velocidade = np.arange(0, 101, 1)     # velocidade vai de 0 a 100 variando em 1
+x_pressao  = np.arange(0, 101, 1)       # pressao vai de 0 a 100 variando em 1
 
 
-# Generate fuzzy membership functions
-distancia_lo = fuzz.trimf(x_distancia, [0, 0, 40])
-distancia_md = fuzz.trimf(x_distancia, [25, 50, 75])
-distancia_hi = fuzz.trimf(x_distancia, [60, 100, 100])
-velocidade_lo = fuzz.trimf(x_velocidade, [0, 0, 40])
-velocidade_md = fuzz.trimf(x_velocidade, [25, 50, 75])
-velocidade_hi = fuzz.trimf(x_velocidade, [60, 100, 100])
-pressao_lo = fuzz.trimf(x_pressao, [0, 0, 40])
-pressao_md = fuzz.trimf(x_pressao, [25, 50, 75])
-pressao_hi = fuzz.trimf(x_pressao, [60, 100, 100])
+# atribuindo valores às funções fuzzy
+distancia_lo = fuzz.gaussmf(x_distancia, 0, 12)
+distancia_md = fuzz.gaussmf(x_distancia, 50, 12)
+distancia_hi = fuzz.gaussmf(x_distancia, 100, 12)
+velocidade_lo = fuzz.gaussmf(x_velocidade,  0, 12)
+velocidade_md = fuzz.gaussmf(x_velocidade,  50, 12)
+velocidade_hi = fuzz.gaussmf(x_velocidade,  100, 12)
+pressao_lo = fuzz.gaussmf(x_pressao, 0, 12)
+pressao_md = fuzz.gaussmf(x_pressao, 50, 12)
+pressao_hi = fuzz.gaussmf(x_pressao, 100, 12)
 
-# Visualize these universes and membership functions
+# gera os graficos
 fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, figsize=(8, 9))
 
 ax0.plot(x_distancia, distancia_lo, 'b', linewidth=1.5, label='Longe')
@@ -45,7 +41,6 @@ ax2.plot(x_pressao, pressao_hi, 'r', linewidth=1.5, label='Alta')
 ax2.set_title('Pressao no freio')
 ax2.legend()
 
-# Turn off top/right axes
 for ax in (ax0, ax1, ax2):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -54,12 +49,10 @@ for ax in (ax0, ax1, ax2):
 
 plt.tight_layout()
 
-plt.show()
+plt.show()      # mostra os 3 primeiros graficos
 
 
-# We need the activation of our fuzzy membership functions at these values.
-# The exact values 6.5 and 9.8 do not exist on our universes...
-# This is what fuzz.interp_membership exists for!
+# recebe os valores de distancia e velocidade e calcula o quanto ele ativa as funções
 distancia = input("Distancia:")
 distancia_level_lo = fuzz.interp_membership(x_distancia, distancia_lo, distancia)
 distancia_level_md = fuzz.interp_membership(x_distancia, distancia_md, distancia)
@@ -70,35 +63,33 @@ velocidade_level_lo = fuzz.interp_membership(x_velocidade, velocidade_lo, veloci
 velocidade_level_md = fuzz.interp_membership(x_velocidade, velocidade_md, velocidade)
 velocidade_level_hi = fuzz.interp_membership(x_velocidade, velocidade_hi, velocidade)
 
-# Now we take our rules and apply them. Rule 1 concerns bad food OR service.
-# The OR operator means we take the maximum of these two.
-active_rule1 = np.fmax(distancia_level_hi, velocidade_level_lo)
 
-# Now we apply this by clipping the top off the corresponding output
-# membership function with `np.fmin`
-pressao_activation_lo = np.fmin(active_rule1, pressao_lo)  # removed entirely to 0
+# aplica as regras.
+# Regra 1: Se a distância é alta ou a velocidade é baixa, a pressão é baixa
+regra1 = np.fmax(distancia_level_hi, velocidade_level_lo)
+ativacao_pressao_lo = np.fmin(regra1, pressao_lo)
 
-# For rule 2 we connect acceptable service to medium tiping
-pressao_activation_md = np.fmin(velocidade_level_md, pressao_md)
+# Regra 2: Se a distância é média ou a velocidade é média, pressão é média
+regra2 = np.fmax(distancia_level_md, velocidade_level_md)
+ativacao_pressao_md = np.fmin(regra2, pressao_md)
 
-# For rule 3 we connect high service OR high food with high pressaoping
-active_rule3 = np.fmax(distancia_level_lo, velocidade_level_hi)
-pressao_activation_hi = np.fmin(active_rule3, pressao_hi)
+# Regra 3: Se a distância é curta ou a velocidade é alta, pressão é alta
+regra3 = np.fmax(distancia_level_lo, velocidade_level_hi)
+ativacao_pressao_hi = np.fmin(regra3, pressao_hi)
 pressao0 = np.zeros_like(x_pressao)
 
-# Visualize this
+# gera os gráficos de ativação
 fig, ax0 = plt.subplots(figsize=(8, 3))
 
-ax0.fill_between(x_pressao, pressao0, pressao_activation_lo, facecolor='b', alpha=0.7)
+ax0.fill_between(x_pressao, pressao0, ativacao_pressao_lo, facecolor='b', alpha=0.7)
 ax0.plot(x_pressao, pressao_lo, 'b', linewidth=0.5, linestyle='--', )
-ax0.fill_between(x_pressao, pressao0, pressao_activation_md, facecolor='g', alpha=0.7)
+ax0.fill_between(x_pressao, pressao0, ativacao_pressao_md, facecolor='g', alpha=0.7)
 ax0.plot(x_pressao, pressao_md, 'g', linewidth=0.5, linestyle='--')
-ax0.fill_between(x_pressao, pressao0, pressao_activation_hi, facecolor='r', alpha=0.7)
+ax0.fill_between(x_pressao, pressao0, ativacao_pressao_hi, facecolor='r', alpha=0.7)
 ax0.plot(x_pressao, pressao_hi, 'r', linewidth=0.5, linestyle='--')
-ax0.set_title('Output membership activity')
+ax0.set_title('Nível de ativação')
 
-# Turn off top/right axes
-for ax in (ax0,):
+for ax in (ax0, ax1, ax2):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.get_xaxis().tick_bottom()
@@ -108,25 +99,24 @@ plt.tight_layout()
 
 # plt.show()
 
-# Aggregate all three output membership functions together
-aggregated = np.fmax(pressao_activation_lo,
-                     np.fmax(pressao_activation_md, pressao_activation_hi))
+# Agrega os três níveis de pressão gerados
+aggregated = np.fmax(ativacao_pressao_lo,
+                     np.fmax(ativacao_pressao_md, ativacao_pressao_hi))
 
-# Calculate defuzzified result
+# "desfuzzifica" o resultado
 pressao = fuzz.defuzz(x_pressao, aggregated, 'centroid')
-pressao_activation = fuzz.interp_membership(x_pressao, aggregated, pressao)  # for plot
+ativacao_pressao = fuzz.interp_membership(x_pressao, aggregated, pressao)  # for plot
 
-# Visualize this
+# gera o gráfico do resultado
 fig, ax0 = plt.subplots(figsize=(8, 3))
 
 ax0.plot(x_pressao, pressao_lo, 'b', linewidth=0.5, linestyle='--', )
 ax0.plot(x_pressao, pressao_md, 'g', linewidth=0.5, linestyle='--')
 ax0.plot(x_pressao, pressao_hi, 'r', linewidth=0.5, linestyle='--')
 ax0.fill_between(x_pressao, pressao0, aggregated, facecolor='Orange', alpha=0.7)
-ax0.plot([pressao, pressao], [0, pressao_activation], 'k', linewidth=1.5, alpha=0.9)
-ax0.set_title('Aggregated membership and result (line)')
+ax0.plot([pressao, pressao], [0, 1], 'k', linewidth=1.5, alpha=0.9)
+ax0.set_title('Ativação agregada e Resultado (linha preta)')
 
-# Turn off top/right axes
 for ax in (ax0,):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -135,6 +125,6 @@ for ax in (ax0,):
 
 plt.tight_layout()
 
-print(pressao)
+print("Pressão aplicada: " + str(pressao))
 
 plt.show()
